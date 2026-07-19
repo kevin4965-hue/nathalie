@@ -202,7 +202,7 @@ define('USAR_PHPMAILER', true);
 define('SMTP_HOST',     'smtp.gmail.com');     // Gmail; cambiar por el servidor del colegio
 define('SMTP_PUERTO',   587);                  // 587 = TLS, 465 = SSL
 define('SMTP_USUARIO',  'sipae.oea@gmail.com');// Cuenta remitente
-define('SMTP_CLAVE',    'xxxx xxxx xxxx xxxx');// Contraseña de aplicación de Google
+define('SMTP_CLAVE',    'ticw hvye vjhy lyvc'); // Contraseña de aplicación de Google
 define('SMTP_NOMBRE',   'SIPAE — Colegio OEA');// Nombre visible en el correo
 
 $enviado = false;
@@ -210,23 +210,23 @@ $errorEnvio = '';
 
 if (USAR_PHPMAILER) {
 
-    // Verificar que PHPMailer esté instalado vía Composer
-    $autoload = __DIR__ . '/vendor/autoload.php';
+    // PHPMailer instalado manualmente en /libs/PHPMailer (sin Composer)
+    $libPHPMailer = __DIR__ . '/libs/PHPMailer/';
 
-    if (!file_exists($autoload)) {
+    if (!file_exists($libPHPMailer . 'PHPMailer.php')) {
         responder(false,
-            'PHPMailer no está instalado. Ejecuta: composer require phpmailer/phpmailer ' .
-            'en el directorio del proyecto, o cambia USAR_PHPMAILER a false para usar mail().'
+            'PHPMailer no está instalado. Copia PHPMailer.php, SMTP.php y Exception.php ' .
+            'en ' . $libPHPMailer . ', o cambia USAR_PHPMAILER a false para usar mail().'
         );
     }
 
-    require $autoload;
+    require $libPHPMailer . 'Exception.php';
+    require $libPHPMailer . 'PHPMailer.php';
+    require $libPHPMailer . 'SMTP.php';
 
-    use PHPMailer\PHPMailer\PHPMailer;
-    use PHPMailer\PHPMailer\SMTP;
-    use PHPMailer\PHPMailer\Exception;
-
-    $mail = new PHPMailer(true); // true = lanza excepciones en vez de errores silenciosos
+    // Nombres de clase completamente calificados: `use` solo es válido
+    // al inicio del archivo, no dentro de un bloque condicional.
+    $mail = new \PHPMailer\PHPMailer\PHPMailer(true); // true = lanza excepciones en vez de errores silenciosos
 
     try {
         // ── Configuración del servidor SMTP ────────────────────────────────
@@ -235,7 +235,7 @@ if (USAR_PHPMAILER) {
         $mail->SMTPAuth   = true;
         $mail->Username   = SMTP_USUARIO;
         $mail->Password   = SMTP_CLAVE;
-        $mail->SMTPSecure = PHPMailer::ENCRYPTION_STARTTLS; // TLS
+        $mail->SMTPSecure = \PHPMailer\PHPMailer\PHPMailer::ENCRYPTION_STARTTLS; // TLS
         $mail->Port       = SMTP_PUERTO;
         $mail->CharSet    = 'UTF-8';
 
@@ -252,7 +252,7 @@ if (USAR_PHPMAILER) {
         $mail->send();
         $enviado = true;
 
-    } catch (Exception $e) {
+    } catch (\PHPMailer\PHPMailer\Exception $e) {
         $errorEnvio = $mail->ErrorInfo;
         error_log('[SIPAE] Error PHPMailer: ' . $errorEnvio);
     }
