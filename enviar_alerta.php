@@ -58,7 +58,8 @@ if (!$estudianteId || $estudianteId <= 0) {
 // ── Obtener datos del estudiante y acudiente desde la BD ──────────────────
 $pdo  = obtenerConexion();
 $stmt = $pdo->prepare(
-    "SELECT e.nombre, e.curso, e.correo_acudiente, e.datos_contacto_acudiente,
+    "SELECT e.nombre, e.curso, e.correo_acudiente,
+            e.nombre_acudiente, e.parentesco_acudiente, e.whatsapp_acudiente,
             COUNT(a.id) AS total_fallas,
             MIN(a.fecha) AS primera_falla,
             MAX(a.fecha) AS ultima_falla
@@ -68,7 +69,8 @@ $stmt = $pdo->prepare(
         AND e.activo = 1
         AND a.estado = 'falla'
         AND a.fecha >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
-      GROUP BY e.id, e.nombre, e.curso, e.correo_acudiente, e.datos_contacto_acudiente"
+      GROUP BY e.id, e.nombre, e.curso, e.correo_acudiente,
+               e.nombre_acudiente, e.parentesco_acudiente, e.whatsapp_acudiente"
 );
 $stmt->execute([':id' => $estudianteId]);
 $est = $stmt->fetch();
@@ -108,7 +110,7 @@ $cuerpoHtml = <<<HTML
         <tr>
           <td style="background:#fef2f2;padding:14px 36px;border-left:4px solid #dc2626">
             <p style="margin:0;font-size:13px;font-weight:700;color:#b91c1c;text-transform:uppercase;letter-spacing:.05em">
-              ⚠ Alerta de Inasistencia Reiterada
+              ⚠ Alerta de Inasistencia
             </p>
           </td>
         </tr>

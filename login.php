@@ -1,118 +1,74 @@
 <?php
 /**
  * login.php
- * Maneja la autenticación de usuarios del sistema SIPAE.
+ * Formulario de inicio de sesión de SIPAE.
  *
- * Flujo:
- *   GET  → muestra el formulario de inicio de sesión.
- *   POST → valida credenciales y redirige según el rol.
- *
- * Seguridad aplicada:
- *   - Prepared statements via PDO (sin riesgo de inyección SQL).
- *   - password_verify() para comparar hash bcrypt (sin texto plano).
- *   - session_regenerate_id() evita la fijación de sesión.
- *   - Mensaje de error genérico (no revela si el correo existe o no).
- *   - htmlspecialchars() en la salida HTML previene XSS.
- *   - Cookies de sesión con HttpOnly + SameSite + Secure en producción.
- *   - Tiempo de vida de sesión limitado.
+ * Cómo funciona:
+ *   1. Si la página se abre normal (GET), solo se muestra el formulario.
+ *   2. Si el usuario envía el formulario (POST), buscamos su correo en
+ *      la base de datos y comparamos la contraseña.
+ *   3. Si todo coincide, guardamos sus datos en la sesión y lo mandamos
+ *      a su panel según su rol (docente o coordinador).
  */
-
-// ---------------------------------------------------------------------------
-// CONFIGURACIÓN DE SESIÓN SEGURA
-// Debe hacerse ANTES de session_start().
-// ---------------------------------------------------------------------------
-ini_set('session.cookie_httponly', '1');   // JS no puede leer la cookie de sesión
-ini_set('session.cookie_samesite', 'Strict'); // Bloquea CSRF cross-site
-ini_set('session.use_strict_mode', '1');   // Rechaza IDs de sesión no iniciados por el servidor
-ini_set('session.gc_maxlifetime', '3600'); // La sesión expira tras 1 hora de inactividad
-
-// En producción con HTTPS, descomentar la siguiente línea:
-// ini_set('session.cookie_secure', '1');
 
 session_start();
 
-// Si el usuario ya tiene sesión activa, redirigir a su dashboard
+// Si ya inició sesión antes, lo mandamos directo a su panel
 if (isset($_SESSION['usuario_id'])) {
     redirigirSegunRol($_SESSION['rol']);
 }
 
 require_once __DIR__ . '/conexion.php';
 
-// ---------------------------------------------------------------------------
-// PROCESAR EL FORMULARIO (solo en peticiones POST)
-// ---------------------------------------------------------------------------
 $error = '';
 
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
-    // 1. Recoger y sanear la entrada del usuario
-    //    trim() elimina espacios accidentales; filter_var valida formato de correo.
-    $correo    = trim($_POST['correo']    ?? '');
+    $correo     = trim($_POST['correo']     ?? '');
     $contrasena = trim($_POST['contrasena'] ?? '');
 
-    // 2. Validación básica antes de tocar la base de datos
-    if (empty($correo) || empty($contrasena)) {
+    if ($correo === '' || $contrasena === '') {
         $error = 'Por favor completa todos los campos.';
 
-    } elseif (!filter_var($correo, FILTER_VALIDATE_EMAIL)) {
-        // No revelar si el correo "existe": mismo mensaje genérico
-        $error = 'Correo o contraseña incorrectos.';
-
     } else {
-        // 3. Consultar el usuario — prepared statement, no concatenación de strings
+        // Buscamos en la tabla "usuarios" el correo que escribió la persona.
+        // Usamos un "prepared statement" (con :correo) en vez de meter el
+        // valor directo en la consulta, para que nadie pueda hacer trampa
+        // escribiendo código SQL en el campo de correo.
         $pdo  = obtenerConexion();
         $stmt = $pdo->prepare(
             'SELECT id, nombre, contrasena, rol
                FROM usuarios
               WHERE correo = :correo
-                AND activo = 1
-              LIMIT 1'
+                AND activo = 1'
         );
-        // El valor se enlaza al placeholder :correo; PDO lo escapa automáticamente
         $stmt->execute([':correo' => $correo]);
         $usuario = $stmt->fetch();
 
-        // 4. Verificar contraseña con bcrypt
-        //    password_verify() compara el texto plano contra el hash almacenado.
-        //    Se evalúa SIEMPRE (incluso si $usuario es false) para evitar
-        //    ataques de temporización que detecten si el correo existe.
-        $hashValido = $usuario
-            ? password_verify($contrasena, $usuario['contrasena'])
-            : false;
+        // Comparamos la contraseña escrita con la que está guardada
+        // en la base de datos.
+        if ($usuario && $contrasena === $usuario['contrasena']) {
 
-        if ($usuario && $hashValido) {
-
-            // 5. Regenerar el ID de sesión para prevenir session fixation
-            session_regenerate_id(true);
-
-            // 6. Guardar datos mínimos en la sesión (sin contraseña)
             $_SESSION['usuario_id'] = $usuario['id'];
             $_SESSION['nombre']     = $usuario['nombre'];
             $_SESSION['rol']        = $usuario['rol'];
-            $_SESSION['inicio']     = time(); // para controlar expiración manual si se requiere
 
-            // 7. Redirigir según el rol
             redirigirSegunRol($usuario['rol']);
 
         } else {
-            // Mensaje genérico: no indicamos si falló el correo o la contraseña
             $error = 'Correo o contraseña incorrectos.';
         }
     }
 }
 
-// ---------------------------------------------------------------------------
-// FUNCIÓN AUXILIAR DE REDIRECCIÓN
-// ---------------------------------------------------------------------------
+// Manda a cada usuario a la página que le corresponde según su rol.
 function redirigirSegunRol(string $rol): void
 {
-    $destinos = [
-        'docente'      => 'dashboard_docente.php',
-        'coordinador'  => 'dashboard_coordinador.php',
-    ];
-
-    $url = $destinos[$rol] ?? 'login.php';
-    header('Location: ' . $url);
+    if ($rol === 'coordinador') {
+        header('Location: dashboard_coordinador.php');
+    } else {
+        header('Location: dashboard_docente.php');
+    }
     exit;
 }
 ?>

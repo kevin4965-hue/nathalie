@@ -53,10 +53,8 @@ CREATE TABLE IF NOT EXISTS usuarios (
     -- Correo institucional; se usa como nombre de usuario para iniciar sesión
     correo        VARCHAR(150)     NOT NULL,
 
-    -- Contraseña NUNCA se guarda en texto plano.
-    -- Se almacena el hash generado por password_hash() de PHP con bcrypt.
-    -- VARCHAR(255) es el tamaño recomendado para alojar cualquier hash futuro.
-    contrasena    VARCHAR(255)     NOT NULL COMMENT 'Hash bcrypt generado desde PHP',
+    -- Contraseña en texto plano (proyecto educativo, sin encriptar).
+    contrasena    VARCHAR(255)     NOT NULL,
 
     -- ENUM restringe los valores a exactamente estos dos; cualquier otro es rechazado por MySQL.
     rol           ENUM('docente','coordinador') NOT NULL DEFAULT 'docente',
@@ -94,9 +92,14 @@ CREATE TABLE IF NOT EXISTS estudiantes (
     -- formatos como '601', '1101' o 'Primero A'.
     curso                    VARCHAR(30)   NOT NULL COMMENT 'Ej: 601, 1101, Primero A',
 
-    -- Texto libre con nombre completo del acudiente, teléfono y parentesco.
-    -- Se usa TEXT porque puede ser extenso y su estructura varía.
-    datos_contacto_acudiente TEXT          NOT NULL COMMENT 'Nombre, teléfono, parentesco',
+    -- Nombre completo del acudiente
+    nombre_acudiente         VARCHAR(120)  NOT NULL,
+
+    -- Parentesco con el estudiante. Ej: Madre, Padre, Abuela, Tío
+    parentesco_acudiente     VARCHAR(30)   NOT NULL,
+
+    -- Número de WhatsApp del acudiente (solo dígitos, sin espacios ni guiones)
+    whatsapp_acudiente       VARCHAR(20)   NOT NULL,
 
     -- Correo del acudiente para el envío de notificaciones automáticas.
     correo_acudiente         VARCHAR(150)  NOT NULL,
@@ -229,18 +232,16 @@ CREATE TABLE IF NOT EXISTS alertas (
 -- ----------------------------------------------------------
 -- INSERT: usuarios
 -- Contraseña en texto plano de TODOS: Test1234!
--- El hash fue generado con: password_hash('Test1234!', PASSWORD_BCRYPT)
--- En producción cada usuario tendrá su propio hash único.
 -- ----------------------------------------------------------
 INSERT INTO usuarios (nombre, correo, contrasena, rol) VALUES
 -- id=1 → coordinadora con visión global del sistema
-('Laura Martínez',   'laura.martinez@oea.edu.co',   '$2y$12$XKpD1VqU3kDNoeRZVLj7OOqSO9z4AQXKhRs5vJwZs2mYbPGNiIhwW', 'coordinador'),
+('Laura Martínez',   'laura.martinez@oea.edu.co',   'Test1234!', 'coordinador'),
 -- id=2 → docente a cargo de grado 601
-('Carlos Herrera',   'carlos.herrera@oea.edu.co',   '$2y$12$XKpD1VqU3kDNoeRZVLj7OOqSO9z4AQXKhRs5vJwZs2mYbPGNiIhwW', 'docente'),
+('Carlos Herrera',   'carlos.herrera@oea.edu.co',   'Test1234!', 'docente'),
 -- id=3 → docente a cargo de grados 701 y 901
-('Patricia Suárez',  'patricia.suarez@oea.edu.co',  '$2y$12$XKpD1VqU3kDNoeRZVLj7OOqSO9z4AQXKhRs5vJwZs2mYbPGNiIhwW', 'docente'),
+('Patricia Suárez',  'patricia.suarez@oea.edu.co',  'Test1234!', 'docente'),
 -- id=4 → docente a cargo de grados 901 y 1101
-('Andrés Rodríguez', 'andres.rodriguez@oea.edu.co', '$2y$12$XKpD1VqU3kDNoeRZVLj7OOqSO9z4AQXKhRs5vJwZs2mYbPGNiIhwW', 'docente');
+('Andrés Rodríguez', 'andres.rodriguez@oea.edu.co', 'Test1234!', 'docente');
 
 
 -- ----------------------------------------------------------
@@ -248,23 +249,23 @@ INSERT INTO usuarios (nombre, correo, contrasena, rol) VALUES
 -- Dos estudiantes por cada curso para simular un grupo pequeño.
 -- Los ids se asignan automáticamente del 1 al 8.
 -- ----------------------------------------------------------
-INSERT INTO estudiantes (nombre, curso, datos_contacto_acudiente, correo_acudiente) VALUES
+INSERT INTO estudiantes (nombre, curso, nombre_acudiente, parentesco_acudiente, whatsapp_acudiente, correo_acudiente) VALUES
 -- id=1  - Grado 601
-('Sofía López Vargas',    '601',  'María Vargas (Madre) - 311 555 0001',  'maria.vargas@gmail.com'),
+('Sofía López Vargas',    '601',  'María Vargas',   'Madre', '3115550001', 'maria.vargas@gmail.com'),
 -- id=2  - Grado 601 (estudiante con fallas reiteradas en los datos de asistencia)
-('Juan Pablo Gómez',      '601',  'Roberto Gómez (Padre) - 312 555 0002', 'roberto.gomez@hotmail.com'),
+('Juan Pablo Gómez',      '601',  'Roberto Gómez',  'Padre', '3125550002', 'roberto.gomez@hotmail.com'),
 -- id=3  - Grado 701
-('Valeria Rincón Torres', '701',  'Ana Torres (Madre) - 313 555 0003',    'ana.torres@gmail.com'),
+('Valeria Rincón Torres', '701',  'Ana Torres',     'Madre', '3135550003', 'ana.torres@gmail.com'),
 -- id=4  - Grado 701
-('Miguel Ángel Pérez',    '701',  'Luis Pérez (Padre) - 314 555 0004',    'luis.perez@gmail.com'),
+('Miguel Ángel Pérez',    '701',  'Luis Pérez',     'Padre', '3145550004', 'luis.perez@gmail.com'),
 -- id=5  - Grado 901
-('Isabella Castro Muñoz', '901',  'Claudia Muñoz (Madre) - 315 555 0005', 'claudia.munoz@yahoo.com'),
+('Isabella Castro Muñoz', '901',  'Claudia Muñoz',  'Madre', '3155550005', 'claudia.munoz@yahoo.com'),
 -- id=6  - Grado 901 (estudiante con riesgo de deserción en los datos de alertas)
-('Santiago Rueda Pardo',  '901',  'Héctor Rueda (Padre) - 316 555 0006',  'hector.rueda@gmail.com'),
+('Santiago Rueda Pardo',  '901',  'Héctor Rueda',   'Padre', '3165550006', 'hector.rueda@gmail.com'),
 -- id=7  - Grado 1101
-('Mariana Díaz Flores',   '1101', 'Elena Flores (Madre) - 317 555 0007',  'elena.flores@gmail.com'),
+('Mariana Díaz Flores',   '1101', 'Elena Flores',   'Madre', '3175550007', 'elena.flores@gmail.com'),
 -- id=8  - Grado 1101
-('Tomás Morales Nieto',   '1101', 'Jorge Morales (Padre) - 318 555 0008', 'jorge.morales@hotmail.com');
+('Tomás Morales Nieto',   '1101', 'Jorge Morales',  'Padre', '3185550008', 'jorge.morales@hotmail.com');
 
 
 -- ----------------------------------------------------------

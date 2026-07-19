@@ -6,7 +6,7 @@
  * Secciones:
  *   1. KPIs del día  — cifras clave en tarjetas de resumen.
  *   2. PAE           — total de almuerzos requeridos hoy, desglosado por curso.
- *   3. Alertas       — estudiantes con 3+ inasistencias en los últimos 7 días.
+ *   3. Alertas       — estudiantes con inasistencias en los últimos 7 días.
  *   4. Control Docente — qué docentes ya registraron asistencia hoy y cuáles no.
  *
  * Todas las consultas usan PDO con prepared statements o queries seguras
@@ -115,7 +115,7 @@ $paePorCurso = $stmtPAE->fetchAll();
 
 // =============================================================================
 // BLOQUE 3 — Alertas de inasistencia
-// Estudiantes con 3 o más fallas en los últimos 7 días corridos.
+// Estudiantes con 1 o más fallas en los últimos 7 días corridos.
 //
 // La ventana de 7 días se calcula con DATE_SUB(CURDATE(), INTERVAL 7 DAY),
 // lo que evita depender de la fecha actual hardcodeada y hace la consulta
@@ -127,7 +127,7 @@ $paePorCurso = $stmtPAE->fetchAll();
  *   1. Filtrar registros de asistencia con estado = 'falla'
  *      en la ventana de 7 días.
  *   2. Agrupar por estudiante.
- *   3. HAVING filtra solo los que acumularon >= 3 fallas.
+ *   3. HAVING filtra desde 1 falla en adelante (cualquier falla ya alerta).
  *   4. Se traen datos del acudiente para notificación directa.
  *   5. primera_falla / ultima_falla permiten ver el rango del problema.
  *   6. Ordenar de mayor a menor fallas (los más críticos, primero).
@@ -146,7 +146,7 @@ $stmtAlertas = $pdo->query(
         AND a.fecha  >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
         AND e.activo  = 1
       GROUP BY e.id, e.nombre, e.curso, e.correo_acudiente
-     HAVING total_fallas >= 3
+     HAVING total_fallas >= 1
       ORDER BY total_fallas DESC, e.nombre ASC"
 );
 $estudiantesEnAlerta = $stmtAlertas->fetchAll();
@@ -291,6 +291,15 @@ $ultimaActualizacion = date('d/m/Y H:i:s');
             transition: background .2s;
         }
         .navbar__logout:hover { background: rgba(255,255,255,.30); }
+
+        .navbar__link {
+            color: #fff;
+            text-decoration: none;
+            font-size: .8rem;
+            font-weight: 600;
+            opacity: .9;
+        }
+        .navbar__link:hover { opacity: 1; text-decoration: underline; }
 
         /* ── Contenedor ────────────────────────────────────────────────────── */
         .contenedor {
@@ -654,6 +663,7 @@ $ultimaActualizacion = date('d/m/Y H:i:s');
             </div>
             <div class="navbar__rol">Coordinador(a)</div>
         </div>
+        <a href="estudiantes.php" class="navbar__link">Estudiantes</a>
         <a href="?logout=1" class="navbar__logout">Cerrar sesión</a>
     </div>
 </nav>
@@ -973,7 +983,7 @@ $ultimaActualizacion = date('d/m/Y H:i:s');
             <?php else: ?>
                 <div class="vacio">
                     <svg viewBox="0 0 24 24"><path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/></svg>
-                    <p>Ningún estudiante acumula 3 o más inasistencias en los últimos 7 días.</p>
+                    <p>Ningún estudiante tiene inasistencias en los últimos 7 días.</p>
                 </div>
             <?php endif; ?>
         </div><!-- /card__body alertas -->
@@ -1020,7 +1030,7 @@ $ultimaActualizacion = date('d/m/Y H:i:s');
         // Pedir confirmación antes de enviar el correo
         if (!window.confirm(
             '¿Desea enviar un correo al acudiente de ' + nombreEstudiante + '?\n\n' +
-            'Se notificará la inasistencia reiterada al correo registrado.'
+            'Se notificará la inasistencia al correo registrado.'
         )) return;
 
         // Estado de carga: deshabilitar y mostrar spinner
